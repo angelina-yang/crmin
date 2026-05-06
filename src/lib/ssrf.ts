@@ -11,6 +11,7 @@
 // AWS metadata, `http://localhost:6379` to poke our own Redis, etc.).
 
 import dns from "node:dns/promises";
+import type { LookupAddress } from "node:dns";
 import net from "node:net";
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
@@ -70,7 +71,7 @@ async function hostnameIsSafe(hostname: string): Promise<{
     return { safe: false, reason: "URL resolves to a private hostname." };
   }
 
-  let addrs: dns.LookupAddress[];
+  let addrs: LookupAddress[];
   try {
     addrs = await dns.lookup(hostname, { all: true, verbatim: true });
   } catch {

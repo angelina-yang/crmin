@@ -435,14 +435,14 @@ export function Workspace({ user }: { user: { name: string } }) {
               }
             />
 
-            <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
               <h3
-                className="text-base font-semibold"
+                className="text-base font-semibold pt-2"
                 style={{ color: "var(--text-primary)" }}
               >
                 Queue
               </h3>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-start gap-2 flex-wrap">
                 {(() => {
                   const noLinkedIn = activeCampaign.contacts.filter(
                     (c) => c.status === "NoLinkedIn"

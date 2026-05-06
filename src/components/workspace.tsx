@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppState, statusPriority } from "@/lib/store";
 import { type Campaign, type Contact } from "@/lib/types";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -35,6 +35,14 @@ export function Workspace({ user }: { user: { name: string } }) {
     total: number;
   } | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  // Mutable cancel flag — set true to interrupt an in-flight enrichment loop
+  // after the current contact finishes. We pair this ref with a `cancelling`
+  // state value: the ref gives the loop a synchronous read; the state value
+  // drives the UI re-render so the Cancel button can flip its label.
+  const cancelResolveRef = useRef(false);
+
+  const RESOLVE_BATCH_SIZE = 20;
 
   const firstName = user.name.split(" ")[0];
 
@@ -122,23 +130,31 @@ export function Workspace({ user }: { user: { name: string } }) {
   // Resolve missing LinkedIn URLs via the /api/enrich route. Sequential —
   // each contact runs its own multi-search loop on the server, so we'd hit
   // function timeouts if we batched too many. One row per request keeps each
-  // request short and lets us update the UI per-row.
+  // request short and lets us update the UI per-row. Bounded by
+  // RESOLVE_BATCH_SIZE so the user sees cost build incrementally.
   const runEnrichment = async (contactsToResolve: Contact[]) => {
     if (!activeCampaign) return;
     if (!state.byokKey) {
       setResolveError(
-        "Add your Anthropic API key in Settings before resolving LinkedIn URLs."
+        "Add your API key in Settings before resolving LinkedIn URLs."
       );
       setShowKeyPanel(true);
       return;
     }
     if (contactsToResolve.length === 0) return;
 
-    setResolveError(null);
-    setResolveProgress({ done: 0, total: contactsToResolve.length });
+    // Cap each click at RESOLVE_BATCH_SIZE so the user can stop and resume
+    // between batches.
+    const batch = contactsToResolve.slice(0, RESOLVE_BATCH_SIZE);
 
-    for (let i = 0; i < contactsToResolve.length; i++) {
-      const contact = contactsToResolve[i];
+    setResolveError(null);
+    cancelResolveRef.current = false;
+    setCancelling(false);
+    setResolveProgress({ done: 0, total: batch.length });
+
+    for (let i = 0; i < batch.length; i++) {
+      if (cancelResolveRef.current) break;
+      const contact = batch[i];
       // Mark as resolving so the UI updates immediately
       updateContact(activeCampaign.id, contact.id, {
         status: "ResolvingLinkedIn",
@@ -205,11 +221,18 @@ export function Workspace({ user }: { user: { name: string } }) {
         });
       }
 
-      setResolveProgress({ done: i + 1, total: contactsToResolve.length });
+      setResolveProgress({ done: i + 1, total: batch.length });
     }
 
     // Brief delay before clearing the progress so the user sees "done"
     setTimeout(() => setResolveProgress(null), 1500);
+    cancelResolveRef.current = false;
+    setCancelling(false);
+  };
+
+  const cancelEnrichment = () => {
+    cancelResolveRef.current = true;
+    setCancelling(true);
   };
 
   if (!ready) {
@@ -420,34 +443,58 @@ export function Workspace({ user }: { user: { name: string } }) {
                 Queue
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
-                {activeCampaign.contacts.some(
-                  (c) => c.status === "NoLinkedIn"
-                ) && (
-                  <button
-                    type="button"
-                    disabled={resolveProgress !== null}
-                    onClick={() =>
-                      runEnrichment(
-                        activeCampaign.contacts.filter(
-                          (c) => c.status === "NoLinkedIn"
-                        )
-                      )
-                    }
-                    className="px-3 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
-                    style={{
-                      color: "var(--text-primary)",
-                      border: "1px solid var(--border-secondary)",
-                    }}
-                  >
-                    {resolveProgress
-                      ? `Resolving ${resolveProgress.done}/${resolveProgress.total}…`
-                      : `Resolve missing URLs (${
-                          activeCampaign.contacts.filter(
-                            (c) => c.status === "NoLinkedIn"
-                          ).length
-                        })`}
-                  </button>
-                )}
+                {(() => {
+                  const noLinkedIn = activeCampaign.contacts.filter(
+                    (c) => c.status === "NoLinkedIn"
+                  );
+                  if (noLinkedIn.length === 0) return null;
+                  const batchCount = Math.min(
+                    noLinkedIn.length,
+                    RESOLVE_BATCH_SIZE
+                  );
+                  return (
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={resolveProgress !== null}
+                          onClick={() => runEnrichment(noLinkedIn)}
+                          className="px-3 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                          style={{
+                            color: "var(--text-primary)",
+                            border: "1px solid var(--border-secondary)",
+                          }}
+                        >
+                          {resolveProgress
+                            ? `Resolving ${resolveProgress.done}/${resolveProgress.total}…`
+                            : noLinkedIn.length > RESOLVE_BATCH_SIZE
+                              ? `Resolve next ${batchCount} (${noLinkedIn.length} left)`
+                              : `Resolve ${batchCount} missing URL${batchCount === 1 ? "" : "s"}`}
+                        </button>
+                        {resolveProgress !== null && (
+                          <button
+                            type="button"
+                            onClick={cancelEnrichment}
+                            disabled={cancelling}
+                            className="px-3 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                            style={{
+                              color: "#ef4444",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                            }}
+                          >
+                            {cancelling ? "Cancelling…" : "Cancel"}
+                          </button>
+                        )}
+                      </div>
+                      <span
+                        className="text-xs mt-1"
+                        style={{ color: "var(--text-faint)" }}
+                      >
+                        ≈ ${(batchCount * 0.05).toFixed(2)}–${(batchCount * 0.15).toFixed(2)} estimated
+                      </span>
+                    </div>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => setShowImport(true)}

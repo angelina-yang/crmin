@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { parseCsv, parseTsv, type CsvParseResult } from "@/lib/csv";
 import { deriveFirstName } from "@/lib/types";
 
@@ -25,6 +25,7 @@ export function AddContactsModal({
 }: Props) {
   const [tab, setTab] = useState<Tab>("csv");
   const [parsed, setParsed] = useState<CsvParseResult | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [pasteText, setPasteText] = useState("");
   const [scrapeUrl, setScrapeUrl] = useState("");
   const [scrapeStage, setScrapeStage] = useState<ScrapeStage>("idle");
@@ -35,6 +36,15 @@ export function AddContactsModal({
     cap: number;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Whenever a fresh `parsed` result arrives, default-select every row.
+  useEffect(() => {
+    if (parsed && parsed.rows.length > 0) {
+      setSelectedRows(new Set(parsed.rows.map((_, i) => i)));
+    } else {
+      setSelectedRows(new Set());
+    }
+  }, [parsed]);
 
   if (!isOpen) return null;
 
@@ -194,13 +204,34 @@ export function AddContactsModal({
 
   const handleConfirm = () => {
     if (!parsed || parsed.rows.length === 0) return;
-    onImport(parsed.rows);
+    const toImport = parsed.rows.filter((_, i) => selectedRows.has(i));
+    if (toImport.length === 0) return;
+    onImport(toImport);
     setParsed(null);
+    setSelectedRows(new Set());
     setPasteText("");
     setScrapeUrl("");
     setScrapePasteText("");
     setScrapeStage("idle");
     onClose();
+  };
+
+  const toggleRow = (i: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (!parsed) return;
+    setSelectedRows((prev) =>
+      prev.size === parsed.rows.length
+        ? new Set()
+        : new Set(parsed.rows.map((_, i) => i))
+    );
   };
 
   const handleCancel = () => {
@@ -391,9 +422,9 @@ export function AddContactsModal({
                 className="text-sm mb-3"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Paste the URL of a public list page — a directory, a
+                Paste the URL of a public list page, a directory, a
                 roundup, an attendees page, a public newsletter post.
-                CRM;IN fetches it and Claude extracts the people on it.
+                CRM;IN fetches it and extracts the people on it.
               </p>
               {!byokKey && (
                 <div
@@ -500,9 +531,7 @@ export function AddContactsModal({
                 style={{ color: "var(--text-faint)" }}
               >
                 URL must be publicly accessible. Don&apos;t paste paywalled
-                or login-gated pages. We log the URL anonymously to
-                understand what kinds of public lists users find useful;
-                we don&apos;t log the extracted contacts.
+                or login-gated pages.
               </p>
             </div>
           )}
@@ -531,46 +560,124 @@ export function AddContactsModal({
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Found <strong>{parsed.rows.length}</strong> contact
-                    {parsed.rows.length === 1 ? "" : "s"}. First few rows:
+                    {parsed.rows.length === 1 ? "" : "s"}. Untick any you
+                    don&apos;t want to import.
                   </p>
                   <div
                     className="rounded-lg overflow-hidden text-xs"
                     style={{ border: "1px solid var(--border-primary)" }}
                   >
-                    <table className="w-full">
-                      <thead style={{ background: "var(--bg-surface)" }}>
-                        <tr>
-                          <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Name</th>
-                          <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Company</th>
-                          <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Role</th>
-                          <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>LinkedIn</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {parsed.rows.slice(0, 8).map((r, i) => (
-                          <tr
-                            key={i}
-                            style={{ borderTop: "1px solid var(--border-primary)" }}
-                          >
-                            <td className="px-3 py-2" style={{ color: "var(--text-primary)" }}>{r.name}</td>
-                            <td className="px-3 py-2" style={{ color: "var(--text-secondary)" }}>{r.company}</td>
-                            <td className="px-3 py-2" style={{ color: "var(--text-secondary)" }}>{r.role ?? "—"}</td>
-                            <td className="px-3 py-2" style={{ color: "var(--text-secondary)" }}>{r.linkedinUrl ? "✓" : "—"}</td>
+                    <div
+                      className="overflow-y-auto"
+                      style={{ maxHeight: "320px" }}
+                    >
+                      <table className="w-full">
+                        <thead
+                          style={{
+                            background: "var(--bg-surface)",
+                            position: "sticky",
+                            top: 0,
+                          }}
+                        >
+                          <tr>
+                            <th className="px-3 py-2 w-8">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all"
+                                checked={
+                                  parsed.rows.length > 0 &&
+                                  selectedRows.size === parsed.rows.length
+                                }
+                                ref={(el) => {
+                                  if (el)
+                                    el.indeterminate =
+                                      selectedRows.size > 0 &&
+                                      selectedRows.size < parsed.rows.length;
+                                }}
+                                onChange={toggleAll}
+                                className="w-3.5 h-3.5 rounded"
+                                style={{ accentColor: "var(--accent)" }}
+                              />
+                            </th>
+                            <th
+                              className="text-left px-3 py-2 font-medium"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              Name
+                            </th>
+                            <th
+                              className="text-left px-3 py-2 font-medium"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              Company
+                            </th>
+                            <th
+                              className="text-left px-3 py-2 font-medium"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              Role
+                            </th>
+                            <th
+                              className="text-left px-3 py-2 font-medium"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              LinkedIn
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {parsed.rows.length > 8 && (
-                      <div
-                        className="px-3 py-2 text-xs"
-                        style={{
-                          background: "var(--bg-surface)",
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        … and {parsed.rows.length - 8} more
-                      </div>
-                    )}
+                        </thead>
+                        <tbody>
+                          {parsed.rows.map((r, i) => {
+                            const checked = selectedRows.has(i);
+                            return (
+                              <tr
+                                key={i}
+                                onClick={() => toggleRow(i)}
+                                style={{
+                                  borderTop: "1px solid var(--border-primary)",
+                                  cursor: "pointer",
+                                  opacity: checked ? 1 : 0.45,
+                                }}
+                              >
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleRow(i)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-3.5 h-3.5 rounded"
+                                    style={{ accentColor: "var(--accent)" }}
+                                  />
+                                </td>
+                                <td
+                                  className="px-3 py-2"
+                                  style={{ color: "var(--text-primary)" }}
+                                >
+                                  {r.name}
+                                </td>
+                                <td
+                                  className="px-3 py-2"
+                                  style={{ color: "var(--text-secondary)" }}
+                                >
+                                  {r.company}
+                                </td>
+                                <td
+                                  className="px-3 py-2"
+                                  style={{ color: "var(--text-secondary)" }}
+                                >
+                                  {r.role ?? "—"}
+                                </td>
+                                <td
+                                  className="px-3 py-2"
+                                  style={{ color: "var(--text-secondary)" }}
+                                >
+                                  {r.linkedinUrl ? "✓" : "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -604,11 +711,12 @@ export function AddContactsModal({
             <button
               type="button"
               onClick={handleConfirm}
-              className="px-5 py-2 text-sm text-white font-medium rounded-lg transition-colors"
+              disabled={selectedRows.size === 0}
+              className="px-5 py-2 text-sm text-white font-medium rounded-lg transition-colors disabled:opacity-40"
               style={{ background: "var(--accent)" }}
             >
-              Import {parsed.rows.length}{" "}
-              contact{parsed.rows.length === 1 ? "" : "s"}
+              Import {selectedRows.size}{" "}
+              {selectedRows.size === 1 ? "contact" : "contacts"}
             </button>
           </footer>
         )}

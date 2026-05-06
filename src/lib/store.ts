@@ -52,12 +52,21 @@ function writeStorage(state: AppState): void {
   }
 }
 
-// Auto-flip Sent → FollowUpDue when followUpAt has passed.
+// Page-load reconciliation: applies on mount only, never during an active
+// session. Two flips:
+//   1. Sent → FollowUpDue when followUpAt has elapsed
+//   2. ResolvingLinkedIn → NoLinkedIn (stale state from a previous tab
+//      that was closed mid-batch; the enrichment loop runs in the page,
+//      so a reload means nothing's actually in flight anymore)
 function applyFollowUpFlips(state: AppState): AppState {
   const now = Date.now();
   let mutated = false;
   const campaigns = state.campaigns.map((c) => {
     const contacts = c.contacts.map((contact) => {
+      if (contact.status === "ResolvingLinkedIn") {
+        mutated = true;
+        return { ...contact, status: "NoLinkedIn" as ContactStatus };
+      }
       if (
         contact.status === "Sent" &&
         contact.followUpAt !== null &&

@@ -3,6 +3,12 @@ import { getSessionCookie } from "@/lib/auth";
 import { getSession } from "@/lib/kv";
 import { enrichOne, type EnrichInput } from "@/lib/enricher";
 
+// Cap the function lifetime at 60s. The enricher does up to 3 web_search
+// rounds + model turns per contact, so a single contact can take 30-50s
+// in the worst case; 60s keeps us bounded and lets the client's
+// 90s AbortController catch any pathological hang cleanly.
+export const maxDuration = 60;
+
 const MAX_BATCH = 20;
 
 export async function POST(req: NextRequest) {

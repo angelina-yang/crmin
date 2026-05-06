@@ -3,6 +3,8 @@ import { getSessionCookie } from "@/lib/auth";
 import { getSession, consumeScrapeQuota, refundScrapeQuota } from "@/lib/kv";
 import { extractCandidates } from "@/lib/scraper";
 
+export const maxDuration = 60;
+
 const MAX_PASTE_BYTES = 100_000; // 100 KB
 
 // Paste-text fallback for the URL scrape feature. Used when fetch returns

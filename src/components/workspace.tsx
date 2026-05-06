@@ -160,10 +160,17 @@ export function Workspace({ user }: { user: { name: string } }) {
         status: "ResolvingLinkedIn",
       });
 
+      // Hard 90s timeout per contact. If the server side hangs (e.g. an
+      // upstream Claude/web_search hiccup), abort and move on — never let
+      // a single bad contact block the whole batch.
+      const ac = new AbortController();
+      const timeoutId = setTimeout(() => ac.abort(), 90_000);
+
       try {
         const res = await fetch("/api/enrich", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: ac.signal,
           body: JSON.stringify({
             anthropicKey: state.byokKey,
             rows: [
@@ -212,13 +219,21 @@ export function Workspace({ user }: { user: { name: string } }) {
           });
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "network error";
+        const isTimeout =
+          err instanceof DOMException && err.name === "AbortError";
+        const msg = isTimeout
+          ? "timed out after 90s"
+          : err instanceof Error
+            ? err.message
+            : "network error";
         updateContact(activeCampaign.id, contact.id, {
           status: contact.linkedinUrl ? "Pending" : "NoLinkedIn",
           notes: contact.notes
             ? `${contact.notes}\n[Enrichment error: ${msg}]`
             : `[Enrichment error: ${msg}]`,
         });
+      } finally {
+        clearTimeout(timeoutId);
       }
 
       setResolveProgress({ done: i + 1, total: batch.length });

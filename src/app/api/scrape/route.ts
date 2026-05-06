@@ -9,6 +9,11 @@ import {
 import { safeFetch } from "@/lib/ssrf";
 import { extractCandidates } from "@/lib/scraper";
 
+// Single-shot extraction over a fetched page. Allow up to 60s for large
+// pages — fetch is bounded at 10s, then Claude has up to ~50s on a
+// 200k-char input.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   // Auth gate
   const sessionToken = await getSessionCookie();

@@ -120,18 +120,34 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
         >
           Anthropic API key
         </label>
-        <input
-          type={reveal ? "text" : "password"}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="sk-ant-…"
-          className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-1 mb-3 font-mono"
-          style={{
-            background: "var(--bg-input)",
-            border: "1px solid var(--border-secondary)",
-            color: "var(--text-primary)",
-          }}
-        />
+        {/* Wrap in a form so Chrome stops complaining about an
+            unwrapped password field. autoComplete="off" tells the
+            browser not to save this and to skip 1Password/LastPass
+            scanners. The form has no submit handler — Save is
+            handled by the button onClick. */}
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          autoComplete="off"
+        >
+          <input
+            type={reveal ? "text" : "password"}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="sk-ant-…"
+            autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore="true"
+            data-lpignore="true"
+            data-form-type="other"
+            name="anthropic-api-key"
+            className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-1 mb-3 font-mono"
+            style={{
+              background: "var(--bg-input)",
+              border: "1px solid var(--border-secondary)",
+              color: "var(--text-primary)",
+            }}
+          />
+        </form>
 
         <p
           className="text-xs leading-relaxed mb-4"

@@ -60,10 +60,9 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
             className="text-sm mt-2 leading-relaxed"
             style={{ color: "var(--text-muted)" }}
           >
-            CRM;IN uses your own Anthropic API key for finding LinkedIn URLs
-            and extracting people from URLs you paste. Your key is stored
-            only in this browser, never on our server beyond proxying the
-            call.
+            CRM;IN uses your Anthropic API key for data enrichment:
+            finding LinkedIn profiles and extracting people from URLs
+            you paste.
           </p>
         </header>
 

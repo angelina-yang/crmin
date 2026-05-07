@@ -65,7 +65,12 @@ function applyFollowUpFlips(state: AppState): AppState {
     const contacts = c.contacts.map((contact) => {
       if (contact.status === "ResolvingLinkedIn") {
         mutated = true;
-        return { ...contact, status: "NoLinkedIn" as ContactStatus };
+        const reason = "[Enrichment interrupted: batch did not complete (page closed or refreshed mid-resolve). Click Auto-find to retry.]";
+        return {
+          ...contact,
+          status: "NoLinkedIn" as ContactStatus,
+          notes: contact.notes ? `${contact.notes}\n${reason}` : reason,
+        };
       }
       if (
         contact.status === "Sent" &&

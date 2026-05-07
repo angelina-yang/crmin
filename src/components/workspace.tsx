@@ -515,7 +515,12 @@ export function Workspace({ user }: { user: { name: string } }) {
                           }}
                         >
                           {resolveProgress
-                            ? `Resolving ${resolveProgress.done}/${resolveProgress.total}…`
+                            ? // Show 1-indexed position of the contact
+                              // currently in flight, not the completed count.
+                              // "1/5" means working on the first one.
+                              resolveProgress.currentName
+                              ? `Resolving ${resolveProgress.done + 1}/${resolveProgress.total}…`
+                              : `Resolving ${resolveProgress.done}/${resolveProgress.total}…`
                             : noLinkedIn.length > RESOLVE_BATCH_SIZE
                               ? `Resolve next ${batchCount} (${noLinkedIn.length} left)`
                               : `Resolve ${batchCount} missing URL${batchCount === 1 ? "" : "s"}`}

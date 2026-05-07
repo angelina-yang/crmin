@@ -11,16 +11,19 @@ const MODEL = "claude-sonnet-4-6";
 
 const SYSTEM_PROMPT = `You are a research assistant resolving LinkedIn profile URLs for a contact list.
 
-For each person you receive (name + company, optionally role), use the web_search tool exactly ONCE to find their personal LinkedIn profile URL.
+For each person you receive (name + company, optionally role), use the web_search tool to find their personal LinkedIn profile URL.
 
 Search strategy:
-1. Search for "{name}" "{company}" linkedin
-2. From the single set of results, find the personal LinkedIn profile URL that best matches the provided name AND company (and role if given).
-3. If no confident match appears in this single search, set linkedin_url to null. Do not search again. Do not guess.
+1. First search: use a LinkedIn-constrained query to focus results on profile pages.
+   Format: "{name}" "{company}" site:linkedin.com/in
+2. From the results, find the personal LinkedIn profile URL that matches the provided name AND company.
+3. TRUST the top result when it clearly matches: if a result on linkedin.com/in/ has the person's name in the page title or URL slug and the company appears in the snippet, ACCEPT it as the answer. The URL slug does not need to perfectly match the name spelling — LinkedIn slugs vary (e.g. "shuffman56" for Steve Huffman).
+4. Only if the first search returns truly ambiguous results (e.g. multiple people with the same name and you cannot tell from the snippets which one is at the right company), perform ONE more search with a refined query: include the role, or use a different phrasing.
+5. If after these two searches you still cannot identify a confident match, set linkedin_url to null.
 
-You have ONE search per contact. Speed and a low false-positive rate matter more than coverage. If the first result does not give you a confident match, returning null is the correct answer.
+You have at most 2 web searches per contact. Use them efficiently. Returning null is the correct answer when you genuinely cannot find a match — but do not return null when the top result of the first search clearly matches the name and company.
 
-Call record_findings exactly once with your conclusion. Return personal profile URLs only — they look like https://www.linkedin.com/in/<slug>. Company pages (linkedin.com/company/...) are NOT acceptable. If you cannot find a personal profile URL with confidence, set linkedin_url to null rather than guess.`;
+Call record_findings exactly once with your conclusion. Return personal profile URLs only — they look like https://www.linkedin.com/in/<slug>. Company pages (linkedin.com/company/...) are NOT acceptable.`;
 
 const RECORD_FINDINGS_TOOL: Anthropic.Tool = {
   name: "record_findings",
@@ -81,10 +84,11 @@ export async function enrichOne(
     {
       type: "web_search_20260209",
       name: "web_search",
-      // ONE search per contact. Speed and predictable cost (~$0.05 per
-      // contact ceiling) over coverage. Null result is fine — user falls
-      // back to Search Google or Paste URL on missed rows.
-      max_uses: 1,
+      // Up to 2 searches per contact: one LinkedIn-constrained search,
+      // optional refinement with role if the first is ambiguous.
+      // Per-contact cost ~$0.04-0.08, wall time ~15-25s, well under
+      // the 60s server timeout.
+      max_uses: 2,
     } as Anthropic.ToolUnion,
     RECORD_FINDINGS_TOOL,
   ];

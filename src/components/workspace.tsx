@@ -572,7 +572,7 @@ export function Workspace({ user }: { user: { name: string } }) {
                           className="text-xs mt-1"
                           style={{ color: "var(--text-faint)" }}
                         >
-                          ≈ ${(batchCount * 0.02).toFixed(2)}–${(batchCount * 0.05).toFixed(2)} estimated
+                          ≈ ${(batchCount * 0.04).toFixed(2)}–${(batchCount * 0.08).toFixed(2)} estimated
                         </span>
                       )}
                     </div>

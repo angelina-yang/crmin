@@ -3,11 +3,11 @@ import { getSessionCookie } from "@/lib/auth";
 import { getSession } from "@/lib/kv";
 import { enrichOne, type EnrichInput } from "@/lib/enricher";
 
-// Cap the function lifetime at 60s. The enricher does up to 3 web_search
-// rounds + model turns per contact, so a single contact can take 30-50s
-// in the worst case; 60s keeps us bounded and lets the client's
-// 90s AbortController catch any pathological hang cleanly.
-export const maxDuration = 60;
+// Cap the function lifetime at 300s (Pro tier max). With max_uses: 2 the
+// expected per-contact wall time is ~15-25s; 300s removes any plausible
+// timeout-as-cause from debugging. The client's 90s AbortController is the
+// real ceiling for the user's experience.
+export const maxDuration = 300;
 
 const MAX_BATCH = 20;
 
@@ -87,19 +87,28 @@ export async function POST(req: NextRequest) {
       company: row.company,
       role: row.role ?? null,
     };
+    const t0 = Date.now();
+    console.log(`[enrich] start ${row.name} <${row.company}>`);
     try {
       const result = await enrichOne(input, anthropicKey);
+      const ms = Date.now() - t0;
+      console.log(
+        `[enrich] done ${row.name} in ${ms}ms — url=${result.linkedinUrl ? "yes" : "null"}`
+      );
       results.push({
         id: row.id,
         linkedinUrl: result.linkedinUrl,
         notes: result.notes,
       });
     } catch (err) {
+      const ms = Date.now() - t0;
       const message =
         err instanceof Error ? err.message : "enrichment failed";
+      const stack = err instanceof Error ? err.stack : undefined;
       console.error(
-        `[enrich] ${row.name} <${row.company}> failed:`,
-        message
+        `[enrich] ${row.name} <${row.company}> failed in ${ms}ms:`,
+        message,
+        stack
       );
       results.push({
         id: row.id,

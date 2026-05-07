@@ -33,9 +33,19 @@ export function Workspace({ user }: { user: { name: string } }) {
   const [resolveProgress, setResolveProgress] = useState<{
     done: number;
     total: number;
+    currentName: string | null;
+    startedAt: number;
   } | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // tick state ticks every second while a batch is in flight, so the
+  // elapsed/remaining display updates without re-rendering the whole tree.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!resolveProgress) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [resolveProgress]);
   // Mutable cancel flag — set true to interrupt an in-flight enrichment loop
   // after the current contact finishes. We pair this ref with a `cancelling`
   // state value: the ref gives the loop a synchronous read; the state value
@@ -155,11 +165,23 @@ export function Workspace({ user }: { user: { name: string } }) {
     setResolveError(null);
     cancelResolveRef.current = false;
     setCancelling(false);
-    setResolveProgress({ done: 0, total: batch.length });
+    const batchStartedAt = Date.now();
+    setResolveProgress({
+      done: 0,
+      total: batch.length,
+      currentName: batch[0]?.name ?? null,
+      startedAt: batchStartedAt,
+    });
 
     for (let i = 0; i < batch.length; i++) {
       if (cancelResolveRef.current) break;
       const contact = batch[i];
+      setResolveProgress({
+        done: i,
+        total: batch.length,
+        currentName: contact.name,
+        startedAt: batchStartedAt,
+      });
       // Mark as resolving so the UI updates immediately
       updateContact(activeCampaign.id, contact.id, {
         status: "ResolvingLinkedIn",
@@ -241,7 +263,13 @@ export function Workspace({ user }: { user: { name: string } }) {
         clearTimeout(timeoutId);
       }
 
-      setResolveProgress({ done: i + 1, total: batch.length });
+      const next = batch[i + 1];
+      setResolveProgress({
+        done: i + 1,
+        total: batch.length,
+        currentName: next?.name ?? null,
+        startedAt: batchStartedAt,
+      });
     }
 
     // Brief delay before clearing the progress so the user sees "done"
@@ -507,12 +535,41 @@ export function Workspace({ user }: { user: { name: string } }) {
                           </button>
                         )}
                       </div>
-                      <span
-                        className="text-xs mt-1"
-                        style={{ color: "var(--text-faint)" }}
-                      >
-                        ≈ ${(batchCount * 0.02).toFixed(2)}–${(batchCount * 0.05).toFixed(2)} estimated
-                      </span>
+                      {resolveProgress !== null ? (
+                        (() => {
+                          const elapsedMs = Date.now() - resolveProgress.startedAt;
+                          const elapsedS = Math.round(elapsedMs / 1000);
+                          // Avg ~12s per contact with max_uses: 1
+                          const remaining = Math.max(
+                            0,
+                            (resolveProgress.total - resolveProgress.done) * 12
+                          );
+                          return (
+                            <span
+                              className="text-xs mt-1 text-right max-w-[18rem]"
+                              style={{ color: "var(--text-faint)" }}
+                            >
+                              {resolveProgress.currentName ? (
+                                <>
+                                  Resolving:{" "}
+                                  <span style={{ color: "var(--text-secondary)" }}>
+                                    {resolveProgress.currentName}
+                                  </span>
+                                  <br />
+                                </>
+                              ) : null}
+                              {elapsedS}s elapsed · ~{remaining}s remaining
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        <span
+                          className="text-xs mt-1"
+                          style={{ color: "var(--text-faint)" }}
+                        >
+                          ≈ ${(batchCount * 0.02).toFixed(2)}–${(batchCount * 0.05).toFixed(2)} estimated
+                        </span>
+                      )}
                     </div>
                   );
                 })()}

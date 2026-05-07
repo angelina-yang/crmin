@@ -290,8 +290,7 @@ export function WelcomeModal({ isOpen }: WelcomeModalProps) {
                 >
                   TwoSetAI Lab Terms of Use
                 </a>
-                . This is a free, BYOK tool — I bring my own API keys and pay
-                my own usage costs.
+                . This is a free, experimental tool.
               </p>
             </div>
 

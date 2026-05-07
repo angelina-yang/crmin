@@ -205,6 +205,7 @@ export function ContactCard({
               <button
                 type="button"
                 onClick={onResolve}
+                title="Charged directly to your provider account. We do not see or control this charge."
                 style={{ color: "var(--accent)" }}
               >
                 Auto-find

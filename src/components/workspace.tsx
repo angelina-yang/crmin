@@ -474,6 +474,7 @@ export function Workspace({ user }: { user: { name: string } }) {
                           type="button"
                           disabled={resolveProgress !== null}
                           onClick={() => runEnrichment(noLinkedIn)}
+                          title="Charged directly to your provider account. We do not see or control this charge."
                           className="px-3 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
                           style={{
                             color: "var(--text-primary)",

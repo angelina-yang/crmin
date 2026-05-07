@@ -433,6 +433,7 @@ export function AddContactsModal({
                   disabled={
                     scrapeStage === "extracting" || !scrapeUrl.trim()
                   }
+                  title="Charged directly to your provider account. We do not see or control this charge."
                   className="px-5 py-2.5 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                   style={{ background: "var(--accent)" }}
                 >

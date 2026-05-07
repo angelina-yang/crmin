@@ -12,6 +12,9 @@ interface Props {
 export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
   const [draft, setDraft] = useState(currentKey ?? "");
   const [reveal, setReveal] = useState(false);
+  // Required financial-responsibility consent. Pre-acknowledge if user is
+  // editing a key they already saved (they consented previously).
+  const [acknowledged, setAcknowledged] = useState(currentKey !== null);
 
   if (!isOpen) return null;
 
@@ -20,6 +23,7 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
     : null;
 
   const handleSave = () => {
+    if (!acknowledged) return;
     const trimmed = draft.trim();
     onSave(trimmed === "" ? null : trimmed);
     onClose();
@@ -39,7 +43,7 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
         onClick={onClose}
       />
       <div
-        className="relative rounded-2xl w-full max-w-md p-6"
+        className="relative rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
         style={{
           background: "var(--bg-elevated)",
           border: "1px solid var(--border-secondary)",
@@ -56,11 +60,38 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
             className="text-sm mt-2 leading-relaxed"
             style={{ color: "var(--text-muted)" }}
           >
-            CRM;IN uses Claude to find LinkedIn URLs from name + company.
-            Bring your own Anthropic key — it&apos;s stored only in this
-            browser, never sent to our server beyond proxying the call.
+            CRM;IN uses your own Anthropic API key for finding LinkedIn URLs
+            and extracting people from URLs you paste. Your key is stored
+            only in this browser, never on our server beyond proxying the
+            call.
           </p>
         </header>
+
+        {/* Spending-cap recommendation banner — shown above the input so
+            users see it before pasting. */}
+        <div
+          className="rounded-lg px-3 py-2.5 mb-4 text-xs leading-relaxed"
+          style={{
+            background: "rgba(234, 179, 8, 0.12)",
+            border: "1px solid rgba(234, 179, 8, 0.3)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <strong style={{ color: "var(--text-primary)" }}>
+            Set a hard spending cap first.
+          </strong>{" "}
+          CRM;IN does not enforce, monitor, or limit your provider charges.
+          Set a monthly cap in your{" "}
+          <a
+            href="https://console.anthropic.com/settings/limits"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--accent)" }}
+          >
+            Anthropic dashboard
+          </a>{" "}
+          before pasting your key.
+        </div>
 
         {masked && (
           <div
@@ -95,7 +126,7 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="sk-ant-…"
-          className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-1 mb-4 font-mono"
+          className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-1 mb-3 font-mono"
           style={{
             background: "var(--bg-input)",
             border: "1px solid var(--border-secondary)",
@@ -104,7 +135,7 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
         />
 
         <p
-          className="text-xs leading-relaxed mb-5"
+          className="text-xs leading-relaxed mb-4"
           style={{ color: "var(--text-faint)" }}
         >
           Get a key at{" "}
@@ -119,6 +150,28 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
           . Keys you paste here go into localStorage. Clearing your browser
           data clears the key.
         </p>
+
+        {/* Required financial-responsibility consent — checkbox must be
+            ticked before Save activates. Click-time clickwrap. */}
+        <label
+          className="flex items-start gap-2.5 mb-5 cursor-pointer"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <input
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(e) => setAcknowledged(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded shrink-0"
+            style={{ accentColor: "var(--accent)" }}
+          />
+          <span className="text-xs leading-relaxed">
+            I understand that I am solely responsible for all charges
+            incurred at my chosen API provider through CRM;IN, and that
+            TwoSetAI cannot see, pause, refund, or limit those charges. I
+            have set a hard spending cap in my provider account, or I
+            accept full responsibility if I have not.
+          </span>
+        </label>
 
         <div className="flex gap-3">
           <button
@@ -150,7 +203,11 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={draft.trim() === currentKey}
+            disabled={
+              !acknowledged ||
+              draft.trim() === "" ||
+              draft.trim() === currentKey
+            }
             className="flex-1 py-2.5 text-white font-medium rounded-lg transition-colors disabled:opacity-40"
             style={{ background: "var(--accent)" }}
           >

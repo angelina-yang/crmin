@@ -42,7 +42,12 @@ export function Workspace({ user }: { user: { name: string } }) {
   // drives the UI re-render so the Cancel button can flip its label.
   const cancelResolveRef = useRef(false);
 
-  const RESOLVE_BATCH_SIZE = 20;
+  // Batch size: kept small while we're still tuning the enrichment loop.
+  // Each contact takes ~10-15s with max_uses: 1, so a batch of 5 is ~1 min
+  // wall time and ~$0.10-$0.25 spend ceiling — small enough that an
+  // accidental mid-batch refresh costs almost nothing. Bump back up once
+  // the per-contact behavior is reliable across many real-world inputs.
+  const RESOLVE_BATCH_SIZE = 5;
 
   const firstName = user.name.split(" ")[0];
 

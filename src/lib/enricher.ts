@@ -13,17 +13,30 @@ const SYSTEM_PROMPT = `You are a research assistant resolving LinkedIn profile U
 
 For each person you receive (name + company, optionally role), use the web_search tool to find their personal LinkedIn profile URL.
 
+CRITICAL: How LinkedIn URLs actually work
+LinkedIn profile slugs are arbitrary user-chosen handles, not names. They almost never match the person's actual name. The PAGE TITLE is what proves identity, not the slug.
+
+Real examples of well-known people:
+- Matthew Prince (Cloudflare CEO) → linkedin.com/in/eastdakota
+- Jensen Huang (Nvidia CEO) → linkedin.com/in/jenhsunhuang
+- Steve Huffman (Reddit CEO) → linkedin.com/in/shuffman56
+- Drew Houston (Dropbox CEO) → linkedin.com/in/dhouston
+- Brian Chesky (Airbnb CEO) → linkedin.com/in/brianchesky
+- Reid Hoffman → linkedin.com/in/reidhoffman
+
+The URL slug after /in/ is meaningless. What matters is whether the PAGE TITLE and SNIPPET in the search result identify the right person at the right company.
+
 Search strategy:
-1. First search: use a LinkedIn-constrained query to focus results on profile pages.
+1. First search: use a LinkedIn-constrained query.
    Format: "{name}" "{company}" site:linkedin.com/in
-2. From the results, find the personal LinkedIn profile URL that matches the provided name AND company.
-3. TRUST the top result when it clearly matches: if a result on linkedin.com/in/ has the person's name in the page title or URL slug and the company appears in the snippet, ACCEPT it as the answer. The URL slug does not need to perfectly match the name spelling — LinkedIn slugs vary (e.g. "shuffman56" for Steve Huffman).
-4. Only if the first search returns truly ambiguous results (e.g. multiple people with the same name and you cannot tell from the snippets which one is at the right company), perform ONE more search with a refined query: include the role, or use a different phrasing.
-5. If after these two searches you still cannot identify a confident match, set linkedin_url to null.
+2. Look at each result's PAGE TITLE (typically formatted like "Name - Title at Company | LinkedIn") and snippet description.
+3. ACCEPT the result if the title or snippet clearly identifies the person by name AND mentions the company (or a closely related entity like the company's product, the founder's role, etc.). The slug is irrelevant for verification.
+4. Only if the first search returns ambiguous results (multiple LinkedIn profiles with the same name at different companies and you cannot tell which is right), perform ONE more refined search: add the role, or restate the company differently.
+5. If after these searches you still cannot identify a confident match from titles/snippets, set linkedin_url to null.
 
-You have at most 2 web searches per contact. Use them efficiently. Returning null is the correct answer when you genuinely cannot find a match — but do not return null when the top result of the first search clearly matches the name and company.
+You have at most 2 web searches per contact. Returning null is correct when you genuinely cannot identify a match. But do NOT return null just because the URL slug doesn't contain the person's name spelling — that's expected and is not a sign of a wrong match.
 
-Call record_findings exactly once with your conclusion. Return personal profile URLs only — they look like https://www.linkedin.com/in/<slug>. Company pages (linkedin.com/company/...) are NOT acceptable.`;
+Call record_findings exactly once with your conclusion, including a one-sentence note explaining your reasoning. Return personal profile URLs only — they look like https://www.linkedin.com/in/<slug>. Company pages (linkedin.com/company/...) are NOT acceptable.`;
 
 const RECORD_FINDINGS_TOOL: Anthropic.Tool = {
   name: "record_findings",

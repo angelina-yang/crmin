@@ -147,8 +147,9 @@ export function ApiKeyPanel({ isOpen, onClose, currentKey, onSave }: Props) {
           >
             console.anthropic.com
           </a>
-          . Keys you paste here go into localStorage. Clearing your browser
-          data clears the key.
+          . Your key is saved on this device only, inside your browser.
+          Clearing your browser data, signing out, or switching devices
+          removes the saved key.
         </p>
 
         {/* Required financial-responsibility consent — checkbox must be

@@ -235,14 +235,22 @@ export function Workspace({ user }: { user: { name: string } }) {
             }>;
           };
           const result = data.results[0];
+          // Always stamp a note on every enrichment attempt so we have a
+          // trace even when Claude returns linkedinUrl: null with empty
+          // notes, or when result is undefined for some reason.
+          const fallbackNote = result?.linkedinUrl
+            ? "Match found."
+            : "[Enrichment ran, no match returned. Try Auto-find again or Search Google manually.]";
+          const enrichmentNote =
+            result?.notes && result.notes.trim().length > 0
+              ? result.notes
+              : fallbackNote;
           updateContact(activeCampaign.id, contact.id, {
             linkedinUrl: result?.linkedinUrl ?? null,
             status: result?.linkedinUrl ? "Pending" : "NoLinkedIn",
-            notes: result?.notes
-              ? contact.notes
-                ? `${contact.notes}\n${result.notes}`
-                : result.notes
-              : contact.notes,
+            notes: contact.notes
+              ? `${contact.notes}\n${enrichmentNote}`
+              : enrichmentNote,
           });
         }
       } catch (err) {

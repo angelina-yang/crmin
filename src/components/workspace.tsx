@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppState, statusPriority } from "@/lib/store";
 import { type Campaign, type Contact } from "@/lib/types";
-import { SignOutButton } from "@/components/sign-out-button";
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { EmptyState } from "@/components/empty-state";
 import { TemplatesPanel } from "@/components/templates-panel";
 import { AddContactsModal } from "@/components/add-contacts-modal";
@@ -294,30 +295,36 @@ export function Workspace({ user }: { user: { name: string } }) {
   if (!ready) {
     return (
       <div
-        className="flex-1 flex items-center justify-center"
-        style={{
-          background: "var(--bg-surface)",
-          color: "var(--text-muted)",
-        }}
+        className="flex flex-col flex-1"
+        style={{ background: "var(--bg-surface)" }}
       >
-        Loading…
+        <Header
+          hasApiKey={Boolean(state.byokKey)}
+          onOpenApiKey={() => setShowKeyPanel(true)}
+        />
+        <div
+          className="flex-1 flex items-center justify-center"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Loading…
+        </div>
+        <Footer />
       </div>
     );
   }
 
   return (
     <div
-      className="flex flex-col flex-1 px-6 pb-12"
+      className="flex flex-col flex-1"
       style={{ background: "var(--bg-surface)" }}
     >
-      <header className="w-full max-w-5xl mx-auto pt-8 pb-6 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p
-            className="text-xs font-semibold tracking-[0.2em] uppercase mb-1.5"
-            style={{ color: "var(--accent)" }}
-          >
-            CRM;IN Workspace
-          </p>
+      <Header
+        hasApiKey={Boolean(state.byokKey)}
+        onOpenApiKey={() => setShowKeyPanel(true)}
+      />
+
+      <main className="flex-1 w-full px-6 pb-12">
+        <div className="w-full max-w-5xl mx-auto pt-8 pb-6">
           <h1
             className="text-2xl font-bold"
             style={{ color: "var(--text-primary)" }}
@@ -325,28 +332,8 @@ export function Workspace({ user }: { user: { name: string } }) {
             Hi, {firstName}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowKeyPanel(true)}
-            className="text-sm rounded-md px-3 py-1.5 transition-colors"
-            style={{
-              color: state.byokKey
-                ? "var(--text-secondary)"
-                : "var(--accent)",
-              border: state.byokKey
-                ? "1px solid var(--border-secondary)"
-                : "1px solid var(--accent)",
-            }}
-            title="Anthropic API key"
-          >
-            {state.byokKey ? "API key ✓" : "Add API key"}
-          </button>
-          <SignOutButton />
-        </div>
-      </header>
 
-      <div className="w-full max-w-5xl mx-auto">
+        <div className="w-full max-w-5xl mx-auto">
         {state.campaigns.length === 0 ? (
           <EmptyState onCreate={handleCreate} />
         ) : !activeCampaign ? (
@@ -658,16 +645,12 @@ export function Workspace({ user }: { user: { name: string } }) {
               </div>
             )}
 
-            <p
-              className="text-xs text-center pt-4"
-              style={{ color: "var(--text-faint)" }}
-            >
-              All sending is manual. CRM;IN never touches LinkedIn — that’s
-              how you stay off the ban radar.
-            </p>
           </div>
         )}
-      </div>
+        </div>
+      </main>
+
+      <Footer />
 
       <AddContactsModal
         isOpen={showImport}
